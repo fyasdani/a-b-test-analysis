@@ -1,0 +1,153 @@
+---
+title: "Analyze A/B Test Results"
+output: html_notebook
+---
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(microbenchmark)
+library(readr)
+```
+
+## Wrangle
+
+## Gather and Assess
+
+```{r}
+tbl <- read_csv("ab_data.csv")
+```
+
+```{r}
+head(tbl)
+```
+
+```{r}
+records <- nrow(tbl)
+records
+```
+
+```{r}
+# Number of records with unique users
+records_unique_usr <- length(unique(tbl$user_id))
+records_unique_usr
+```
+
+```{r}
+records_non_unique_usr <- records - records_unique_usr
+records_non_unique_usr
+```
+
+There are 3894 records with non-unique user IDs.
+
+```{r}
+# Preview records with non-unique user IDs
+tbl %>%
+  filter(duplicated(user_id) | duplicated(user_id, fromLast = TRUE)) %>%
+  arrange(user_id) %>%
+  slice_head(n = 10)
+```
+
+The redundant user IDs have mismatched records! For instance, user `630052` is
+part of the `treatment` group. As such, this user should have been served the
+`new_page`. Yet user `630052` is recorded as having received both. Similarly,
+user `630320` is recorded as being part of the `control` group _and_ the
+`treatment` group. So which is it? Well in both instances, they are said to have
+landed on the `old_page`, which should have been served to the `control` group.
+
+```{r}
+treat_old <- tbl %>%
+  filter(group == "treatment" & landing_page != "new_page")
+treat_old_cnt <- nrow(treat_old)
+
+treat_old_cnt
+```
+
+```{r}
+ctrl_new <- tbl %>%
+  filter(group == "control" & landing_page != "old_page")
+ctrl_new_cnt <- nrow(ctrl_new)
+
+ctrl_new_cnt
+```
+
+```{r}
+mismatch <- bind_rows(treat_old, ctrl_new)
+mismatch_cnt <- nrow(mismatch)
+
+mismatch_cnt
+```
+
+Wait a minute...
+
+```{r}
+records_non_unique_usr - mismatch_cnt
+```
+
+📝 All but _one_ of the non-unique user IDs are due to redundant, mismatched
+record pairs.
+
+```{r}
+# Return non-unique user IDs _not_ due to redundant, mismatched record pairs.
+tbl %>%
+  anti_join(mismatch) %>%
+  filter(duplicated(user_id) | duplicated(user_id, fromLast = TRUE))
+```
+
+```{r}
+# Test whether there are any missing values in the data frame as a whole.
+colSums(is.na(tbl)) > 0
+```
+
+## Clean
+
+### Issue 1: There are 3893 redundant user IDs having mismatched records.
+
+The `control` group should be served the `old_page`, and the `new_group` should be served the `new_page`.
+
+#### Define: Filter for the properly matched results, storing them in a new data frame.
+
+#### Code
+
+```{r}
+tbl_2 <- tbl %>%
+  filter(
+    (group == "control" & landing_page == "old_page") |
+    (group == "treatment" & landing_page == "new_page")
+  )
+```
+
+#### Test
+
+```{r}
+tbl_2 %>%
+  filter(
+    (group == "control" & landing_page != "old_page") |
+    (group == "treatment" & landing_page != "new_page")
+  )
+```
+
+### Issue 2: There is one other non-unique user ID.
+
+Note: The two records have different timestamps. Since the variables of
+interest are `group` and `landing_page`, one of the records can be dropped.
+
+#### Define: Drop one of the records.
+
+#### Code
+
+```{r}
+tbl_2 <- tbl_2 %>% 
+  distinct(user_id, .keep_all = TRUE)
+```
+
+#### Test
+
+```{r}
+tbl_2 %>%
+  filter(duplicated(user_id) | duplicated(user_id, fromLast = TRUE))
+```
+
+```{r}
+tbl_2
+```
