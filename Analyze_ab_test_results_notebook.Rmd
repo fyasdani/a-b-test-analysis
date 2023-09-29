@@ -58,17 +58,15 @@ landed on the `old_page`, which should have been served to the `control` group.
 ```{r}
 treat_old <- tbl %>%
   filter(group == "treatment" & landing_page != "new_page")
-treat_old_cnt <- nrow(treat_old)
 
-treat_old_cnt
+nrow(treat_old)
 ```
 
 ```{r}
 ctrl_new <- tbl %>%
   filter(group == "control" & landing_page != "old_page")
-ctrl_new_cnt <- nrow(ctrl_new)
 
-ctrl_new_cnt
+nrow(ctrl_new)
 ```
 
 ```{r}
@@ -137,7 +135,7 @@ interest are `group` and `landing_page`, one of the records can be dropped.
 #### Code
 
 ```{r}
-tbl_2 <- tbl_2 %>% 
+tbl_2 <- tbl_2 %>%
   distinct(user_id, .keep_all = TRUE)
 ```
 
@@ -146,8 +144,4 @@ tbl_2 <- tbl_2 %>%
 ```{r}
 tbl_2 %>%
   filter(duplicated(user_id) | duplicated(user_id, fromLast = TRUE))
-```
-
-```{r}
-tbl_2
 ```
