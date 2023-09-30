@@ -4,10 +4,12 @@ output: html_notebook
 ---
 
 ```{r}
+library(boot)
 library(dplyr)
 library(ggplot2)
 library(microbenchmark)
 library(readr)
+library(tibble)
 ```
 
 ## Wrangle
@@ -144,4 +146,92 @@ tbl_2 <- tbl_2 %>%
 ```{r}
 tbl_2 %>%
   filter(duplicated(user_id) | duplicated(user_id, fromLast = TRUE))
+```
+
+## Analyze
+
+### Describe: Probability
+
+```{r}
+# Overall probability of a user converting
+p_pop <- mean(tbl_2$converted)
+p_pop
+```
+
+```{r}
+tbl_2_ctrl <- tbl_2 %>%
+  filter(group == "control")
+ctrl_cnvt_prob <- mean(tbl_2_ctrl$converted)
+
+ctrl_cnvt_prob
+```
+
+```{r}
+tbl_2_treat <- tbl_2 %>%
+  filter(group == "treatment")
+treat_cnvt_prob <- mean(tbl_2_treat$converted)
+
+treat_cnvt_prob
+```
+
+```{r}
+# Calculate the actual difference (obs_diff) between the conversion rates for
+# the two groups.
+obs_diff <- treat_cnvt_prob - ctrl_cnvt_prob
+obs_diff
+```
+
+<sup>Note: `control` is subtracted from `treatment` to show how exposure to the
+new landing page affects the outcome of interest `conversion`: thus, a negative
+number indicates a lower probability of conversion, and a positive number
+indicates a higher probability.</sup>
+
+The conversion rate for the treatment group was lower--albeit by only 0.0016.
+
+### A/B Test
+
+As a starting point, let us assume that the `old_page` is better ($H_0$). To
+accept the `new_page` as better ($H_1$), we would require conclusive evidence
+with, say, a 95% chance of being right--ie a 5% chance of being wrong ($α$ =
+0.05).
+
+$$
+H_0: p_{new} - p_{old} \leq 0\\ H_1: p_{new} - p_{old} > 0
+$$
+Under the null hypothesis $H_0$, our aforementioned starting point, we assume
+that $p_{new}$ and $p_{old}$ are equal for the purposes of the experiment.
+Further, we assume that both are equal to $p_{pop}$, the overall probability of
+a user converting across our population `tbl_2`. Basically, we assume the
+landing page served makes no difference.
+
+$$
+p_{new} = p_{old} = p_{pop}
+$$
+#### Bootstrap
+##### Resample
+
+```{r}
+ab_test_bootfun <- function(data, indices) {
+  sample_ctrl <- data[indices, ]
+  sample_treat <- data[-indices, ]
+  # Probability of a user converting for the bootstrap samples
+  sample_ctrl_cnvt_prob <- mean(sample_ctrl$converted)
+  sample_treat_cnvt_prob <- mean(sample_treat$converted)
+  # Calculate the difference between the conversion rates
+  p_diffs <- sample_treat_cnvt_prob - sample_ctrl_cnvt_prob
+  return(p_diffs)
+}
+```
+
+```{r}
+set.seed(42)
+```
+
+```{r}
+reps <- boot(data = tbl_2, statistic = ab_test_bootfun, R = 1000)
+```
+
+```{r}
+# P-value
+mean(reps$t > obs_diff)
 ```
