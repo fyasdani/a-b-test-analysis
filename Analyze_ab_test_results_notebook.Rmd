@@ -52,8 +52,8 @@ The redundant user IDs have mismatched records! For instance, user `630052` is
 part of the `treatment` group. As such, this user should have been served the
 `new_page`. Yet user `630052` is recorded as having received both. Similarly,
 user `630320` is recorded as being part of the `control` group _and_ the
-`treatment` group. So which is it? Well in both instances, they are said to have
-landed on the `old_page`, which should have been served to the `control` group.
+`treatment` group. So in which group is the user? In both instances, user
+`630320` is said to have landed on the `old_page`, which should have been served to the `control` group.
 
 ```{r}
 treat_old <- tbl %>%
@@ -76,13 +76,11 @@ mismatch_cnt <- nrow(mismatch)
 mismatch_cnt
 ```
 
-Wait a minute...
-
 ```{r}
 records_non_unique_usr - mismatch_cnt
 ```
 
-📝 All but _one_ of the non-unique user IDs are due to redundant, mismatched
+All but _one_ of the non-unique user IDs are due to redundant, mismatched
 record pairs.
 
 ```{r}
@@ -101,7 +99,8 @@ colSums(is.na(tbl)) > 0
 
 ### Issue 1: There are 3893 redundant user IDs having mismatched records.
 
-The `control` group should be served the `old_page`, and the `new_group` should be served the `new_page`.
+The `control` group should be served the `old_page`, and the `new_group` should
+be served the `new_page`.
 
 #### Define: Filter for the properly matched results, storing them in a new data frame.
 
@@ -128,7 +127,8 @@ tbl_2 %>%
 ### Issue 2: There is one other non-unique user ID.
 
 Note: The two records have different timestamps. Since the variables of
-interest are `group` and `landing_page`, one of the records can be dropped.
+interest are `group`, `landing_page`, and `conversion`, one of the records can
+be dropped.
 
 #### Define: Drop one of the records.
 
