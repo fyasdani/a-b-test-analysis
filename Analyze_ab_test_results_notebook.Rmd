@@ -218,16 +218,21 @@ conversion rates between treatment and control ($\overline{x}_1 -
 \overline{x}_2$). Then, we can approximate the true difference, that is, the
 difference for the overall population by taking the mean of the differences,
 i.e.,
+
 $$
 \overline{B} = \frac{1}{1000} \sum_{r'=1}^{1000}
-\,(\overline{x}_1^{\,*r'} -\overline{x}_2^{\,*r'})
+\,(p_{\vphantom{l}new}^{\,*r'} - p_{old}^{\,*r'})
 $$
 along with its standard deviation:
 $$
-\mathrm{SD}_{\overline{B}} \,(\overline{x}_1 -\overline{x}_2) =
-\sqrt{\frac{1}{1000 - 1} \sum_{r'=1}^{1000} \,(\overline{x}_1^{\,*r'} -
-\overline{x}_2^{\,*r'} - \overline{B})^2}
+\mathrm{SD}_{\overline{B}} \,(p_{new} - p_{old}) =
+\sqrt{\frac{1}{1000 - 1} \sum_{r'=1}^{1000}
+\,(p_{\vphantom{l}new}^{\,*r'} - p_{old}^{\,*r'} - \overline{B})^2}
 $$
+
+<sup>Note: In this context, $p_{new}$ and $p_{old}$ are sample-specific means
+($\overline{x}_1$ and $\overline{x}_2$). They represent the _estimated_
+conversion rates for the two groups.
 
 ##### Resample
 
@@ -359,3 +364,89 @@ In this case, we obtain a relatively large p-value of 0.887, which suggests
 that--under the null hypothesis--we are actually likely to observe a difference
 ($p_{new} - p_{old}$) upwards of -0.0016, the observed statistic. Therefore, we
 fail to reject the null hypothesis.
+
+#### Sensitivity
+
+Let us assess the robustness and reliability of our findings. To what extent are
+they affected by input or methodology?
+
+```{r}
+# Using another random seed...
+set.seed(25)
+```
+
+```{r}
+# Generate another list of bootstrap samples
+reps_2 <- boot(data = tbl_2, statistic = ab_test_bootfun, R = 1000)
+```
+
+```{r}
+# Collect garbage: free unused memory
+invisible(gc())
+```
+
+```{r}
+# P-value
+mean(reps_2$t > obs_diff)
+```
+
+Here, we obtain a p-value virtually identical to the last one (0.887).
+
+#### Z-score
+
+Z-score offers another way to compare the two conversion rates, representing
+the distance between them in terms of standard error ($\text{SE}$). It applies
+to situations where the sample is large, the data is distributed normally, and
+the population parameters are known--or assumed, among other criteria.
+The z-score can be derived from the two sample z-test.
+
+##### Two Sample z-test
+
+This test assess the difference between the means of two samples, accounting for
+their variances and sample sizes:
+
+$$
+z_{score} = \frac{(p'_{\vphantom{l}new} - p'_{old}) - (p_{new} - p_{old})}
+{SE \,(p'_{\vphantom{l}new} - p'_{old})}
+$$
+
+where,
+
+$$
+SE \,(p'_{\vphantom{l}new} - p'_{old}) =
+\sqrt{\frac{s_{\vphantom{l}new}^2}{n_{new}} + \frac{s_{old}^2}{n_{old}}}
+$$
+
+<sup>Note: In this context, $p'_{\vphantom{l}new}$ and $p'_{old}$ represent
+sample-specific, estimated rates ($\overline{x}$); $p_{new}$ and $p_{old}$
+represent the true, population conversion rates ($\mu$), the difference of which
+is assumed to be $0$.</sup>
+
+```{r}
+z.test(
+  x = tbl_2_treat$converted, y = tbl_2_ctrl$converted, alternative = "greater",
+  mu = 0, sigma.x = sd(tbl_2_ctrl$converted),
+  sigma.y = sd(tbl_2_treat$converted), conf.level = 0.95
+)
+```
+
+```{r}
+# The significance level
+alpha <- 0.05
+
+# Calculate the critical z-value for a right-tailed test (95% CI)
+qnorm(1 - alpha)
+```
+
+For a right-tailed test, given a confidence interval of 95%, the critical value
+($z_{\alpha}$) is 1.645. Thus, we would consider z-scores greater than 1.645
+standard errors (SE) above 0 as statistically  significant, providing evidence
+to reject the null hypothesis.
+
+However, our z-score is -1.311, between 1 and 2 standard errors _below_ 0--
+or between the 68% and 95% CI, in line with previous estimates (see [Bootstrap]
+above). Similarly, the estimated p-value of 0.905 correlates with earlier
+findings (0.888 and 0.887).
+
+Given the z-score of -1.311, as well as a p-value of 0.905, we once again fail
+to reject the null hypothesis.
