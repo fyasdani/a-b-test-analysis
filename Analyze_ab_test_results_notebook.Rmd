@@ -5,6 +5,7 @@ output: html_notebook
 
 ```{r}
 library(boot)
+library(BSDA)
 library(dplyr)
 library(ggplot2)
 library(readr)
@@ -191,7 +192,7 @@ treatment group is lower--albeit by only 0.0016. But how can we ensure that this
 accurately represents the user population as a whole--and isn't just due to
 variability and randomness?
 
-### A/B Test
+### A/B Test Results
 
 As a starting point, let us assume that the `old_page` is better ($H_0$). To
 accept the `new_page` as better ($H_1$), we will require conclusive evidence
@@ -201,6 +202,12 @@ with, say, a 95% chance of being right--ie a 5% chance of being wrong ($α$ =
 $$
 H_0: p_{new} - p_{old} \leq 0\\ H_1: p_{new} - p_{old} > 0
 $$
+
+Under the null hypothesis $H_0$, our aforementioned starting point, we assume
+that $p_{new}$ and $p_{old}$ are equal for the purposes of the experiment.
+Further, we assume that both are equal to $p_{pop}$, the overall probability of
+a user converting across our population. Basically, we assume the
+landing page served makes no difference.
 
 #### Bootstrap
 
@@ -217,8 +224,9 @@ $$
 $$
 along with its standard deviation:
 $$
-\mathrm{SD}_{\overline{B}} \,(\overline{x}_1 -\overline{x}_2) = \sqrt{\frac{1}{1000 - 1} \sum_{r'=1}^{1000}
-\,(\overline{x}_1^{\,*r'} - \overline{x}_2^{\,*r'} - \overline{B})^2}
+\mathrm{SD}_{\overline{B}} \,(\overline{x}_1 -\overline{x}_2) =
+\sqrt{\frac{1}{1000 - 1} \sum_{r'=1}^{1000} \,(\overline{x}_1^{\,*r'} -
+\overline{x}_2^{\,*r'} - \overline{B})^2}
 $$
 
 ##### Resample
@@ -265,7 +273,89 @@ p_diffs_mean_sd
 ci_up_bound <- p_diffs_mean + p_diffs_mean_sd
 ci_low_bound <- p_diffs_mean - p_diffs_mean_sd
 
-sprintf("A substantial majority* of sampled differences lie between %f and %f.", ci_low_bound, ci_up_bound)
+# CI string formatter
+fmt <- function (ci_bound) format(round(ci_bound, 4), trim = TRUE)
+
+sprintf(
+  "A substantial majority* of sampled differences lie between %s and %s.",
+  fmt(ci_low_bound), fmt(ci_up_bound)
+)
+```
+<sup>*68%, assuming a normal distribution</sup>
+
+##### Visualize
+
+```{r}
+reps_df <- tibble(reps$t)
+# Calculate the number of bins with Sturges' rule
+nbin <- ceiling(log2(1000) + 1)
+ci_up_bound_95 <- quantile(reps$t, 0.975)
+ci_low_bound_95 <- quantile(reps$t, 0.025)
+
+ggplot(reps_df, aes(x = reps$t)) +
+  geom_histogram(fill = "lightblue", color = "black", bins = nbin) +
+  labs(
+    title = "Null Distribution of Conversion Rate Differences",
+    x = "Difference in Conversion Rate (Treatment - Control)",
+    y = "Number of Samples"
+  ) +
+  geom_vline(xintercept = obs_diff, color = "#CD001A", linetype = "solid") +
+  geom_rect(
+    xmin = ci_low_bound_95, xmax = ci_up_bound_95,
+    ymin = -Inf, ymax = Inf, fill = "#E6BBAD", alpha = 0.01
+  ) +
+  annotate(
+    "text", x = obs_diff + .004625, y = 235, label = paste(
+      "Observed Difference =", fmt(obs_diff)
+    ),
+    color = "#CD001A"
+  ) +
+  annotate(
+    "text", x = obs_diff + .004625, y = 210, label = paste(
+      "95% Confidence Interval:\n", fmt(ci_low_bound_95),
+      'to', fmt(ci_up_bound_95)
+    ),
+    color = "#808080"
+  ) +
+  theme_minimal()
 ```
 
-<sup>*68%, assuming a normal distribution</sup>
+The observed difference (in red) falls well within the range of likely values
+for the true, population difference under the null hypothesis.
+
+#### P-value
+
+The p-value signifies the probability of a test result being at least as extreme
+as the result in the sample--in the direction of the alternate hypothesis--
+assuming the null hypothesis is true.
+
+- A high p-value indicates that the observed result (a) is not extreme and (b)
+is likely to occur under the null hypothesis, which we thereby fail to reject.
+- But a low p-value suggests that the observed result (a) _is_ extreme and (b)
+is unlikely to occur under the null hypothesis, which is evidence to reject it.
+
+> ##### Understanding P-values
+> <sup> Imagine flipping a coin 100 times. Normally, you'd expect about 50 heads
+and 50 tails—the "business-as-usual" or _null_ hypothesis ($H_0$). But if you
+got an unusual outcome, like 64 heads, it might raise suspicions about the
+coin's fairness--the null hypothesis is assuming a fair coin. <br> &emsp;&emsp;
+P-value analysis can help determine how likely it is, under the null hypothesis,
+to get such an extreme result. In this case, the odds of landing 64 heads are,
+assuming the coin is fair, approximately 1 in 1250 (0.0008)! Now, a p-value of
+0.0008 is well below the usual significance level ($\alpha$ = 0.05), which casts
+doubt on the notion that the coin is fair--and may constitute grounds to reject
+the null hypothesis.
+
+To reject the null hypothesis, our observed statistic must have extremely low
+odds of occurring under the null hypothesis: namely, the p-value needs to be
+smaller than our chosen significance level ($\alpha$ = 0.05).
+
+```{r}
+# P-value
+mean(reps$t > obs_diff)
+```
+
+In this case, we obtain a relatively large p-value of 0.887, which suggests
+that--under the null hypothesis--we are actually likely to observe a difference
+($p_{new} - p_{old}$) upwards of -0.0016, the observed statistic. Therefore, we
+fail to reject the null hypothesis.
