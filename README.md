@@ -6,8 +6,6 @@ Investigates whether an e-commerce site should adopt a new landing page or keep
 its old one. The A/B test results are analyzed using bootstraps to generate
 p-values, which are then corroborated parametrically using a two sample z-test.
 
-![histogram of null distribution of mean differences](null_dist_mean_diff.png)
-
 ## Dependencies
 
 ### R Notebook
@@ -35,4 +33,6 @@ is significantly better. Therefore, there is insufficient evidence at this time
 to support adopting it. The e-commerce site should evaluate further before
 deciding on a landing page.
 
-**For a detailed analysis, please refer to the [full report](https://github.com/fyasdani/a-b-test-analysis/blob/main/Analyze_ab_test_results_r_notebook.html).**
+![histogram of null distribution of mean differences](null_dist_mean_diff.png)
+
+**For a detailed analysis, please refer to the [full report](https://raw.githack.com/fyasdani/a-b-test-analysis/main/Analyze_ab_test_results_r_notebook.html).**
