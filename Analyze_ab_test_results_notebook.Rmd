@@ -1,6 +1,6 @@
 ---
 title: "Analyze A/B Test Results"
-output: html_notebook
+output:
 ---
 
 ```{r}
