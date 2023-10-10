@@ -1,6 +1,8 @@
 ---
 title: "Analyze A/B Test Results"
 output:
+  html_document:
+    toc: true
 ---
 
 ```{r}
@@ -13,7 +15,7 @@ library(readr)
 
 ## Wrangle
 
-## Gather and Assess
+### Gather and Assess
 
 ```{r}
 tbl <- read_csv("ab_data.csv")
@@ -97,16 +99,16 @@ tbl %>%
 colSums(is.na(tbl)) > 0
 ```
 
-## Clean
+### Clean
 
-### Issue 1: There are 3893 redundant user IDs having mismatched records.
+#### Issue 1: There are 3893 redundant user IDs having mismatched records.
 
 The `control` group should be served the `old_page`, and the `new_group` should
 be served the `new_page`.
 
-#### Define: Filter for the properly matched results, storing them in a new data frame.
+##### Define: Filter for the properly matched results, storing them in a new data frame.
 
-#### Code
+##### Code
 
 ```{r}
 tbl_2 <- tbl %>%
@@ -116,7 +118,7 @@ tbl_2 <- tbl %>%
   )
 ```
 
-#### Test
+##### Test
 
 ```{r}
 tbl_2 %>%
@@ -126,22 +128,22 @@ tbl_2 %>%
   )
 ```
 
-### Issue 2: There is one other non-unique user ID.
+#### Issue 2: There is one other non-unique user ID.
 
 Note: The two records have different timestamps. Since the variables of
 interest are `group`, `landing_page`, and `conversion`, one of the records can
 be dropped.
 
-#### Define: Drop one of the records.
+##### Define: Drop one of the records.
 
-#### Code
+##### Code
 
 ```{r}
 tbl_2 <- tbl_2 %>%
   distinct(user_id, .keep_all = TRUE)
 ```
 
-#### Test
+##### Test
 
 ```{r}
 tbl_2 %>%
@@ -450,3 +452,82 @@ findings (0.888 and 0.887).
 
 Given the z-score of -1.311, as well as a p-value of 0.905, we once again fail
 to reject the null hypothesis.
+
+### Bonus: Regression
+
+We can also analyze the test data by conducting a regression analysis. Instead
+of a standard linear regression ($\beta_0 + \beta_1X$), we will opt for logistic
+regression. While all types of regression aim to uncover statistical
+relationships between one or more dependent variables ($Y$) and one or more
+independent variables ($X$), logistic regression is tailored toward predicting
+binary outcomes. Thanks to the _logistic function_,
+
+$$
+p(X) = \frac{e^{\beta_0 + \beta_1X}}{1 + e^{\beta_0 + \beta_1X}}
+$$
+
+a logistic regression will never output values less than 0 or greater than 1.
+The output will always taper off as it approaches the extremes of its range
+(cf linear regressions).*
+
+<sup>*Any time you fit a straight line to yes's and no's--`1`s and `0`s--you can
+bet that, eventually, for some values of X, the odds will be less than 0 or
+greater than 1. Absurd!</sup>
+
+#### Logistic Regression
+
+By reworking the formula above,
+
+$$
+\frac{p(X)}{1 - p(X)} = e^{\beta_0 + \beta_1X}
+$$
+
+and taking the logarithm of both sides, we arrive at the logistic regression
+model.
+
+$$
+\text{log}\biggl(\frac{p(X)}{1 - p(X)}\biggl) \,= \beta_0 + \beta_1X 
+$$
+
+In this model, increasing $X$ by one unit, from `0` to `1`--that is, from
+`control` to `treatment` ($p_{new} - p_{old}$)--changes the log odds by
+$\beta_1X$. Since log odds are centered around 0, a negative number indicates
+worse odds, and vice versa. So, building on our hypothesis above:
+
+$$
+H_0: p_{new} - p_{old} = 0 = \beta_1X\\ H_1: p_{new} - p_{old} \ne 0 \ne \beta_1X
+$$
+In other words, the null hypothesis is that conversion rate does not depend on landing page, new or old.
+
+```{r}
+model <- glm(formula = converted ~ group, data = tbl_2, family = "binomial")
+```
+
+```{r}
+summary(model)
+```
+
+The `treatment` group's odds of a user converting are estimated to be worse
+($B_1X$ = -0.015 &#177; 0.011). But because the margin of error approaches 0,
+we lack confidence in its odds being significantly different.
+
+```{r}
+# The significance level
+alpha <- 0.05
+
+# Calculate the critical z-value for a right-tailed test (95% CI)
+qnorm(1 - alpha/2)
+```
+
+Moving on, the z-score of -1.311 wasn't enough to pass a one-tailed test (see
+[Two Sample z-test] above). For a two-tailed test like this one, the critical
+value ($z_{\alpha}$) is even larger at &#177; 1.96.
+
+Finally, the p-value is 0.19, which actually corresponds to the estimates
+observed earlier. For instance, the two-sample z-test found a p-value of 0.905,
+estimating that 90.5% of test statistics would be greater than or equal to the
+one we observed. Now, in this two-tailed test, we find the estimated probability
+of seeing a value at least as extreme _in either direction_ (0.19 = (1 - 0.905)
+* 2). At any rate, 0.19 is greater than our significance level of 0.05.
+
+For all of these reasons, we fail to reject the null hypothesis.

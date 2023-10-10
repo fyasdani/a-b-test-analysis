@@ -352,6 +352,24 @@ display: none;
 
 </div>
 
+<div id="TOC">
+<ul>
+<li><a href="#wrangle" id="toc-wrangle">Wrangle</a>
+<ul>
+<li><a href="#gather-and-assess" id="toc-gather-and-assess">Gather and
+Assess</a></li>
+<li><a href="#clean" id="toc-clean">Clean</a></li>
+</ul></li>
+<li><a href="#analyze" id="toc-analyze">Analyze</a>
+<ul>
+<li><a href="#describe-probability" id="toc-describe-probability">Describe: Probability</a></li>
+<li><a href="#ab-test-results" id="toc-ab-test-results">A/B Test
+Results</a></li>
+<li><a href="#bonus-regression" id="toc-bonus-regression">Bonus:
+Regression</a></li>
+</ul></li>
+</ul>
+</div>
 
 <pre class="r"><code>library(boot)
 library(BSDA)</code></pre>
@@ -379,9 +397,8 @@ library(BSDA)</code></pre>
 library(readr)</code></pre>
 <div id="wrangle" class="section level2">
 <h2>Wrangle</h2>
-</div>
-<div id="gather-and-assess" class="section level2">
-<h2>Gather and Assess</h2>
+<div id="gather-and-assess" class="section level3">
+<h3>Gather and Assess</h3>
 <pre class="r"><code>tbl &lt;- read_csv(&quot;ab_data.csv&quot;)</code></pre>
 <pre><code>## Rows: 294478 Columns: 5
 ## ── Column specification ────────────────────────────────────────────────────────
@@ -474,28 +491,28 @@ colSums(is.na(tbl)) &gt; 0</code></pre>
 <pre><code>##      user_id    timestamp        group landing_page    converted 
 ##        FALSE        FALSE        FALSE        FALSE        FALSE</code></pre>
 </div>
-<div id="clean" class="section level2">
-<h2>Clean</h2>
-<div id="issue-1-there-are-3893-redundant-user-ids-having-mismatched-records." class="section level3">
-<h3>Issue 1: There are 3893 redundant user IDs having mismatched
-records.</h3>
+<div id="clean" class="section level3">
+<h3>Clean</h3>
+<div id="issue-1-there-are-3893-redundant-user-ids-having-mismatched-records." class="section level4">
+<h4>Issue 1: There are 3893 redundant user IDs having mismatched
+records.</h4>
 <p>The <code>control</code> group should be served the
 <code>old_page</code>, and the <code>new_group</code> should be served
 the <code>new_page</code>.</p>
-<div id="define-filter-for-the-properly-matched-results-storing-them-in-a-new-data-frame." class="section level4">
-<h4>Define: Filter for the properly matched results, storing them in a
-new data frame.</h4>
+<div id="define-filter-for-the-properly-matched-results-storing-them-in-a-new-data-frame." class="section level5">
+<h5>Define: Filter for the properly matched results, storing them in a
+new data frame.</h5>
 </div>
-<div id="code" class="section level4">
-<h4>Code</h4>
+<div id="code" class="section level5">
+<h5>Code</h5>
 <pre class="r"><code>tbl_2 &lt;- tbl %&gt;%
   filter(
     (group == &quot;control&quot; &amp; landing_page == &quot;old_page&quot;) |
     (group == &quot;treatment&quot; &amp; landing_page == &quot;new_page&quot;)
   )</code></pre>
 </div>
-<div id="test" class="section level4">
-<h4>Test</h4>
+<div id="test" class="section level5">
+<h5>Test</h5>
 <pre class="r"><code>tbl_2 %&gt;%
   filter(
     (group == &quot;control&quot; &amp; landing_page != &quot;old_page&quot;) |
@@ -506,26 +523,27 @@ new data frame.</h4>
 ## #   landing_page &lt;chr&gt;, converted &lt;dbl&gt;</code></pre>
 </div>
 </div>
-<div id="issue-2-there-is-one-other-non-unique-user-id." class="section level3">
-<h3>Issue 2: There is one other non-unique user ID.</h3>
+<div id="issue-2-there-is-one-other-non-unique-user-id." class="section level4">
+<h4>Issue 2: There is one other non-unique user ID.</h4>
 <p>Note: The two records have different timestamps. Since the variables
 of interest are <code>group</code>, <code>landing_page</code>, and
 <code>conversion</code>, one of the records can be dropped.</p>
-<div id="define-drop-one-of-the-records." class="section level4">
-<h4>Define: Drop one of the records.</h4>
+<div id="define-drop-one-of-the-records." class="section level5">
+<h5>Define: Drop one of the records.</h5>
 </div>
-<div id="code-1" class="section level4">
-<h4>Code</h4>
+<div id="code-1" class="section level5">
+<h5>Code</h5>
 <pre class="r"><code>tbl_2 &lt;- tbl_2 %&gt;%
   distinct(user_id, .keep_all = TRUE)</code></pre>
 </div>
-<div id="test-1" class="section level4">
-<h4>Test</h4>
+<div id="test-1" class="section level5">
+<h5>Test</h5>
 <pre class="r"><code>tbl_2 %&gt;%
   filter(duplicated(user_id) | duplicated(user_id, fromLast = TRUE))</code></pre>
 <pre><code>## # A tibble: 0 × 5
 ## # ℹ 5 variables: user_id &lt;dbl&gt;, timestamp &lt;dttm&gt;, group &lt;chr&gt;,
 ## #   landing_page &lt;chr&gt;, converted &lt;dbl&gt;</code></pre>
+</div>
 </div>
 </div>
 </div>
@@ -795,6 +813,90 @@ estimated p-value of 0.905 correlates with earlier findings (0.888 and
 <p>Given the z-score of -1.311, as well as a p-value of 0.905, we once
 again fail to reject the null hypothesis.</p>
 </div>
+</div>
+</div>
+<div id="bonus-regression" class="section level3">
+<h3>Bonus: Regression</h3>
+<p>We can also analyze the test data by conducting a regression
+analysis. Instead of a standard linear regression (<span class="math inline">\(\beta_0 + \beta_1X\)</span>), we will opt for
+logistic regression. While all types of regression aim to uncover
+statistical relationships between one or more dependent variables (<span class="math inline">\(Y\)</span>) and one or more independent variables
+(<span class="math inline">\(X\)</span>), logistic regression is
+tailored toward predicting binary outcomes. Thanks to the <em>logistic
+function</em>,</p>
+<p><span class="math display">\[
+p(X) = \frac{e^{\beta_0 + \beta_1X}}{1 + e^{\beta_0 + \beta_1X}}
+\]</span></p>
+<p>a logistic regression will never output values less than 0 or greater
+than 1. The output will always taper off as it approaches the extremes
+of its range (cf linear regressions).*</p>
+<p><sup>*Any time you fit a straight line to yes’s and
+no’s–<code>1</code>s and <code>0</code>s–you can bet that, eventually,
+for some values of X, the odds will be less than 0 or greater than 1.
+Absurd!</sup></p>
+<div id="logistic-regression" class="section level4">
+<h4>Logistic Regression</h4>
+<p>By reworking the formula above,</p>
+<p><span class="math display">\[
+\frac{p(X)}{1 - p(X)} = e^{\beta_0 + \beta_1X}
+\]</span></p>
+<p>and taking the logarithm of both sides, we arrive at the logistic
+regression model.</p>
+<p><span class="math display">\[
+\text{log}\biggl(\frac{p(X)}{1 - p(X)}\biggl) \,= \beta_0 + \beta_1X
+\]</span></p>
+<p>In this model, increasing <span class="math inline">\(X\)</span> by
+one unit, from <code>0</code> to <code>1</code>–that is, from
+<code>control</code> to <code>treatment</code> (<span class="math inline">\(p_{new} - p_{old}\)</span>)–changes the log odds
+by <span class="math inline">\(\beta_1X\)</span>. Since log odds are
+centered around 0, a negative number indicates worse odds, and vice
+versa. So, building on our hypothesis above:</p>
+<p><span class="math display">\[
+H_0: p_{new} - p_{old} = 0 = \beta_1X\\ H_1: p_{new} - p_{old} \ne 0 \ne
+\beta_1X
+\]</span> In other words, the null hypothesis is that conversion rate
+does not depend on landing page, new or old.</p>
+<pre class="r"><code>model &lt;- glm(formula = converted ~ group, data = tbl_2, family = &quot;binomial&quot;)</code></pre>
+<pre class="r"><code>summary(model)</code></pre>
+<pre><code>## 
+## Call:
+## glm(formula = converted ~ group, family = &quot;binomial&quot;, data = tbl_2)
+## 
+## Coefficients:
+##                 Estimate Std. Error  z value Pr(&gt;|z|)    
+## (Intercept)    -1.988777   0.008062 -246.671   &lt;2e-16 ***
+## grouptreatment -0.014989   0.011434   -1.311     0.19    
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## (Dispersion parameter for binomial family taken to be 1)
+## 
+##     Null deviance: 212778  on 290583  degrees of freedom
+## Residual deviance: 212776  on 290582  degrees of freedom
+## AIC: 212780
+## 
+## Number of Fisher Scoring iterations: 4</code></pre>
+<p>The <code>treatment</code> group’s odds of a user converting are
+estimated to be worse (<span class="math inline">\(B_1X\)</span> =
+-0.015 ± 0.011). But because the margin of error approaches 0, we lack
+confidence in its odds being significantly different.</p>
+<pre class="r"><code># The significance level
+alpha &lt;- 0.05
+
+# Calculate the critical z-value for a right-tailed test (95% CI)
+qnorm(1 - alpha/2)</code></pre>
+<pre><code>## [1] 1.959964</code></pre>
+<p>Moving on, the z-score of -1.311 wasn’t enough to pass a one-tailed
+test (see <a href="#two-sample-z-test">Two Sample z-test</a> above). For
+a two-tailed test like this one, the critical value (<span class="math inline">\(z_{\alpha}\)</span>) is even larger at ± 1.96.</p>
+<p>Finally, the p-value is 0.19, which actually corresponds to the
+estimates observed earlier. For instance, the two-sample z-test found a
+p-value of 0.905, estimating that 90.5% of test statistics would be
+greater than or equal to the one we observed. Now, in this two-tailed
+test, we find the estimated probability of seeing a value at least as
+extreme <em>in either direction</em> (0.19 = (1 - 0.905) * 2). At any
+rate, 0.19 is greater than our significance level of 0.05.</p>
+<p>For all of these reasons, we fail to reject the null hypothesis.</p>
 </div>
 </div>
 </div>
